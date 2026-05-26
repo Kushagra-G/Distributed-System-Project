@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dspy-svc
+spec:
+  clusterIP: None  # headless gives stable per-pod DNS via the StatefulSet
+  selector:
+    app: dspy-node
+  ports:
+    - port: 5000
+      targetPort: 5000
+      name: http
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: dspy-node
+spec:
+  serviceName: dspy-svc
+  replicas: 8
+  selector:
+    matchLabels:
+      app: dspy-node
+  template:
+    metadata:
+      labels:
+        app: dspy-node
+    spec:
+      containers:
+        - name: node
+          image: dspy-node:latest   # build locally and load into clusyer
+          ports:
+            - containerPort: 5000
+          env:
+            - name: NUM_NODES
+              value: "8"
+            - name: PORT
+              value: "5000"
+            - name: VNODE_K
+              value: "64"
+            - name: SVC_DOMAIN
+              value: "dspy-svc.default.svc.cluster.local"
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 5000
+            initialDelaySeconds: 2
+            periodSeconds: 5
